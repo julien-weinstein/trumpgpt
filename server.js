@@ -113,6 +113,7 @@ const server = http.createServer(async (req,res)=>{
    ).map(m=>({role:m.role,content:m.content.slice(0,4000)}));
    if(!messages.length)throw Error("Empty conversation");
    console.log("API key available:", Boolean(process.env.OPENAI_API_KEY));
+   console.log("Refresh variable available:", Boolean(process.env.TRUMPGPT_CONFIG_REFRESH));
    if(!process.env.OPENAI_API_KEY)
     return send(503,{error:"API key not configured"});
    const response=await fetch("https://api.openai.com/v1/chat/completions",{
