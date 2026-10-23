@@ -34,14 +34,18 @@ body{margin:0;min-height:100dvh;background:var(--bg);color:var(--text);font:400 
 body::before{content:"";position:fixed;inset:-20% -10% auto;height:70vh;background:radial-gradient(ellipse at 50% 0,var(--bg-glow),transparent 65%);pointer-events:none;z-index:0}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:8px}
+::selection{background:color-mix(in srgb,var(--gold) 35%,transparent)}
+::-webkit-scrollbar{width:10px}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--gold) 22%,transparent);border-radius:10px;border:3px solid var(--bg)}
+body::after{content:"";position:fixed;inset:auto -10% -30%;height:50vh;background:radial-gradient(ellipse at 50% 100%,color-mix(in srgb,var(--gold) 7%,transparent),transparent 65%);pointer-events:none;z-index:0}
 
 /* Header */
-.top{position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top);background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid transparent;transition:border-color .2s}
-.top.scrolled{border-bottom-color:var(--line)}
+.top{position:sticky;isolation:isolate;top:0;z-index:5;padding-top:env(safe-area-inset-top);background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid transparent;transition:border-color .2s}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--gold) 55%,transparent) 50%,transparent);opacity:0;transition:opacity .25s}
+.top.scrolled::after{opacity:1}
 .top-inner{max-width:820px;margin:0 auto;height:56px;padding:0 16px;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:10px;font:800 19px/1 var(--serif);letter-spacing:.2px}
 .brand em{font-style:normal;background:linear-gradient(180deg,var(--gold-2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
-.seal{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:radial-gradient(circle at 35% 30%,#f3d48e,#d9a94e 70%);color:#1a1408;font:800 15px/1 var(--serif);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25),0 2px 8px rgba(0,0,0,.25)}
+.seal{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:radial-gradient(circle at 32% 28%,#fbe7b5,#e2b562 45%,#b8862f 100%);color:#2a1d06;font:800 15px/1 var(--serif);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3),inset 0 -2px 4px rgba(120,80,10,.35),0 0 0 2px var(--bg),0 0 0 3px color-mix(in srgb,var(--gold) 55%,transparent),0 4px 14px -2px rgba(217,169,78,.45)}
 .icon-btn{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--text-2);transition:background .15s,color .15s}
 .icon-btn:hover{background:var(--hover);color:var(--text)}
 
@@ -49,38 +53,43 @@ main{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:4px 20px 
 
 /* Welcome */
 .welcome{min-height:calc(100dvh - 300px);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px 0;animation:rise .5s ease both}
-.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line-strong);border-radius:999px;font-size:12.5px;font-weight:500;color:var(--text-2);background:color-mix(in srgb,var(--surface) 70%,transparent)}
-.badge i{width:7px;height:7px;border-radius:50%;background:#3fbf6f;box-shadow:0 0 0 3px rgba(63,191,111,.18)}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid color-mix(in srgb,var(--gold) 35%,transparent);border-radius:999px;font-size:12.5px;font-weight:500;color:var(--text-2);background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.badge i{width:7px;height:7px;border-radius:50%;background:var(--gold-2);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 22%,transparent);animation:glow 2.4s ease-in-out infinite}
 .welcome h1{margin:22px 0 10px;font:800 clamp(34px,8.5vw,56px)/1.08 var(--serif);letter-spacing:-.5px}
-.welcome h1 em{font-style:italic;background:linear-gradient(180deg,var(--gold-2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;padding-right:.06em}
+.welcome h1 em{font-style:italic;background:linear-gradient(100deg,var(--gold) 20%,#fff1c9 45%,var(--gold-2) 55%,var(--gold) 80%);background-size:250% 100%;animation:shine 6s ease-in-out infinite;-webkit-background-clip:text;background-clip:text;color:transparent;padding-right:.06em}
+.ornament{display:flex;align-items:center;gap:12px;margin:2px 0 16px;color:var(--gold);font-size:12px;letter-spacing:6px}
+.ornament::before,.ornament::after{content:"";width:56px;height:1px;background:linear-gradient(90deg,transparent,currentColor)}
+.ornament::after{transform:scaleX(-1)}
 .welcome p{margin:0;max-width:440px;color:var(--muted);font-size:15.5px;line-height:1.6}
 .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:620px;margin-top:34px}
 .card{text-align:left;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 85%,transparent);transition:transform .15s,border-color .15s,background .15s}
-.card:hover{transform:translateY(-2px);border-color:var(--line-strong);background:var(--raised)}
+.card:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--gold) 45%,transparent);background:var(--raised);box-shadow:0 10px 30px -14px color-mix(in srgb,var(--gold) 45%,transparent)}
+.card b::before{content:"★";margin-right:7px;font-size:11px;color:var(--gold);vertical-align:1px}
 .card b{display:block;font-weight:600;font-size:14.5px;line-height:1.35}
 .card span{display:block;margin-top:3px;font-size:13px;line-height:1.4;color:var(--muted)}
 
 /* Conversation */
 .turn{margin:28px 0;animation:rise .25s ease both}
 .turn.user{display:flex;justify-content:flex-end}
-.turn.user .bubble{max-width:82%;background:var(--user);padding:11px 17px;border-radius:22px 22px 6px 22px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+.turn.user .bubble{max-width:82%;background:color-mix(in srgb,var(--gold) 9%,var(--user));border:1px solid color-mix(in srgb,var(--gold) 20%,transparent);padding:11px 17px;border-radius:22px 22px 6px 22px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
 .turn.bot{display:grid;grid-template-columns:30px minmax(0,1fr);gap:14px}
 .turn.bot .seal{width:28px;height:28px;font-size:14px;margin-top:2px}
 .text{font-size:16.5px;color:var(--text);overflow-wrap:anywhere}
 .text p{margin:0 0 14px;white-space:pre-wrap}
 .text p:last-child{margin-bottom:0}
 .dots{display:inline-flex;gap:5px;padding:10px 0}
-.dots i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:blink 1.2s infinite}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
-.caret p:last-child::after{content:"";display:inline-block;width:8px;height:1.05em;margin-left:3px;vertical-align:-2px;border-radius:2px;background:var(--gold);animation:blink 1s steps(1) infinite}
+.fade{animation:fadein .55s ease-out both}
+.streaming p:last-child::after{content:"";display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--gold-2);box-shadow:0 0 10px 2px color-mix(in srgb,var(--gold) 55%,transparent);vertical-align:1px;animation:glow 1.2s ease-in-out infinite}
 .error{margin-top:10px;padding:10px 14px;border-radius:12px;font-size:14px;color:#ff9b9b;background:rgba(199,59,66,.12);border:1px solid rgba(199,59,66,.25)}
 .actions{display:flex;align-items:center;gap:2px;margin-top:10px;margin-left:-8px}
 .act{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;border-radius:9px;font-size:13px;font-weight:500;color:var(--muted);transition:background .15s,color .15s}
-.act:hover{background:var(--hover);color:var(--text)}
+.act:hover{background:color-mix(in srgb,var(--gold) 10%,transparent);color:var(--gold-2)}
 .act svg{width:15px;height:15px}
 .sources{margin:10px 0 0;display:none}
 .sources.open{display:block;animation:rise .2s ease both}
-.src{margin:0 0 8px;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;line-height:1.55;color:var(--text-2)}
+.src{margin:0 0 8px;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);border-left:2px solid color-mix(in srgb,var(--gold) 60%,transparent);font-size:13.5px;line-height:1.55;color:var(--text-2)}
 .src small{display:block;margin-bottom:3px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
 
 /* Composer */
@@ -96,11 +105,14 @@ textarea::placeholder{color:var(--muted)}
 .send .stop{display:none}
 .send.busy .arrow{display:none}.send.busy .stop{display:block}
 .fine{max-width:760px;margin:8px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
-.jump{position:fixed;left:50%;bottom:118px;z-index:6;transform:translate(-50%,8px);opacity:0;pointer-events:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--raised);border:1px solid var(--line-strong);box-shadow:var(--shadow);color:var(--text-2);transition:opacity .2s,transform .2s}
+.jump{position:fixed;left:50%;bottom:118px;z-index:6;transform:translate(-50%,8px);opacity:0;pointer-events:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--raised);border:1px solid color-mix(in srgb,var(--gold) 45%,transparent);box-shadow:var(--shadow);color:var(--gold-2);transition:opacity .2s,transform .2s}
 .jump.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes fadein{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:none}}
+@keyframes glow{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:640px){
   main{padding:4px 16px 190px}
@@ -159,8 +171,16 @@ const ICONS = {
 let history = [], busy = false, stats = null, controller = null;
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
-const nearBottom = () => window.innerHeight + window.scrollY >= document.body.scrollHeight - 120;
-const scrollDown = smooth => window.scrollTo({ top: document.body.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+// The last reply may sit above blank space reserved by anchor(), so measure
+// against the end of its content rather than the end of the page.
+const contentEnd = () => {
+  const last = chat.lastElementChild;
+  const node = last?.querySelector('.body') || last;
+  return node ? node.getBoundingClientRect().bottom + scrollY : document.body.scrollHeight;
+};
+const visibleEnd = () => scrollY + innerHeight - document.querySelector('.dock').offsetHeight;
+const nearBottom = () => visibleEnd() >= contentEnd() - 40;
+const scrollDown = smooth => window.scrollTo({ top: contentEnd() - innerHeight + document.querySelector('.dock').offsetHeight + 24, behavior: smooth ? 'smooth' : 'auto' });
 const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 function welcome() {
@@ -182,7 +202,8 @@ function welcome() {
     c.onclick = () => submit(prompt);
     cards.append(c);
   }
-  w.append(badge, h, p, cards);
+  const orn = el('div', 'ornament', '★★★');
+  w.append(badge, h, orn, p, cards);
   return w;
 }
 
@@ -202,7 +223,70 @@ function addUser(text) {
 function addBot() {
   const t = el('div', 'turn bot', '<span class="seal">T</span><div class="body"><div class="text"><span class="dots"><i></i><i></i><i></i></span></div></div>');
   chat.append(t);
-  return { body: t.querySelector('.body'), text: t.querySelector('.text') };
+  return { turn: t, body: t.querySelector('.body'), text: t.querySelector('.text') };
+}
+
+// Like ChatGPT and Claude: move the question to the top of the screen and
+// leave room below it, then let the reply grow downward without following
+// it, so it can be read from the first word.
+function anchor(userTurn, botTurn) {
+  chat.querySelectorAll('.turn.bot').forEach(t => { t.style.minHeight = ''; });
+  if (!userTurn) return;
+  const headerH = $('top').offsetHeight, dockH = document.querySelector('.dock').offsetHeight;
+  botTurn.style.minHeight = Math.max(0, innerHeight - headerH - dockH - userTurn.offsetHeight - 40) + 'px';
+  const top = userTurn.getBoundingClientRect().top + scrollY - headerH - 16;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
+// Reveals streamed text a few words at a time, each chunk fading in, rather
+// than letter by letter. Speeds up when it falls behind the stream.
+function fader(node) {
+  let queue = '', budget = 0, raf = 0, started = false, ended = false, pendingNL = 0, p = null, resolve;
+  const finished = new Promise(r => { resolve = r; });
+  const para = () => { p = el('p'); node.append(p); };
+  const span = t => { const s = el('span', 'fade'); s.textContent = t; p.append(s); };
+  function emit(chunk) {
+    for (const part of chunk.split(/(\n+)/)) {
+      if (!part) continue;
+      if (part[0] === '\n') { pendingNL += part.length; continue; }
+      if (!p) para();
+      else if (pendingNL >= 2) para();
+      else if (pendingNL === 1) span('\n');
+      pendingNL = 0;
+      span(part);
+    }
+  }
+  function tick() {
+    raf = 0;
+    if (!queue) { if (ended) resolve(); return; }
+    budget += Math.max(1.6, queue.length / 28);
+    let n = Math.floor(budget);
+    if (n >= 1) {
+      // End each chunk on a word boundary unless the stream is over.
+      const next = queue.slice(n).search(/\s/);
+      n = next >= 0 ? n + next + 1 : ended || queue.length > 60 ? queue.length : 0;
+    }
+    if (n) {
+      budget = 0;
+      emit(queue.slice(0, n));
+      queue = queue.slice(n);
+      updateChrome();
+    }
+    raf = requestAnimationFrame(tick);
+  }
+  return {
+    push(t) {
+      if (!started) { started = true; node.replaceChildren(); node.classList.add('streaming'); }
+      queue += t;
+      if (!raf) raf = requestAnimationFrame(tick);
+    },
+    end() {
+      ended = true;
+      if (!raf) raf = requestAnimationFrame(tick);
+      return finished.then(() => node.classList.remove('streaming'));
+    },
+    skip() { cancelAnimationFrame(raf); queue = ''; resolve(); node.classList.remove('streaming'); },
+  };
 }
 
 function addActions(body, reply, sources) {
@@ -278,8 +362,10 @@ function submit(text) {
 
 async function run() {
   setBusy(true);
-  const { body, text } = addBot();
-  scrollDown(true);
+  const users = chat.querySelectorAll('.turn.user');
+  const { turn, body, text } = addBot();
+  anchor(users[users.length - 1], turn);
+  const reveal = fader(text);
   let reply = '', sources = null;
   controller = new AbortController();
   try {
@@ -303,24 +389,23 @@ async function run() {
         if (msg.sources) sources = msg.sources;
         if (msg.error) throw Error(msg.error);
         if (msg.d) {
-          const stick = nearBottom();
           reply += msg.d;
-          render(text, reply);
-          text.classList.add('caret');
-          if (stick) scrollDown();
+          reveal.push(msg.d);
         }
       }
     }
     if (!reply) throw Error('No reply. Try again.');
+    await reveal.end();
   } catch (err) {
-    if (!reply) text.replaceChildren();
+    reveal.skip();
+    if (reply) render(text, reply);
+    else text.replaceChildren();
     if (err.name !== 'AbortError') {
       const e = el('div', 'error');
       e.textContent = err.message;
       text.after(e);
     }
   } finally {
-    text.classList.remove('caret');
     controller = null;
     if (reply) {
       history.push({ role: 'assistant', content: reply });
@@ -349,10 +434,11 @@ input.addEventListener('keydown', e => {
 input.addEventListener('input', resize);
 $('reset').addEventListener('click', reset);
 $('jump').addEventListener('click', () => scrollDown(true));
-window.addEventListener('scroll', () => {
+function updateChrome() {
   $('top').classList.toggle('scrolled', window.scrollY > 4);
-  $('jump').classList.toggle('show', history.length > 0 && !nearBottom());
-}, { passive: true });
+  $('jump').classList.toggle('show', chat.querySelector('.turn') !== null && !nearBottom());
+}
+window.addEventListener('scroll', updateChrome, { passive: true });
 
 fetch('/api/status').then(r => r.json()).then(s => {
   stats = s.corpus;
