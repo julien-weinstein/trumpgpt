@@ -22,6 +22,8 @@ h1 span{color:var(--red)}
 .msg.assistant{align-self:flex-start;background:var(--panel);border:1px solid var(--line)}
 .who{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--gold);margin-bottom:4px}
 .user .who{color:#ffe3d0}
+.reality{margin-top:12px;padding:10px 12px;border-radius:10px;background:#0f1c31;border-left:3px solid #6fb3ff;color:#cfe3ff;font-size:14px;white-space:normal}
+.reality b{color:#8cc4ff}
 details{margin-top:10px;font-size:12px;color:var(--muted)}
 summary{cursor:pointer}
 details p{margin:6px 0;padding-left:8px;border-left:2px solid var(--line);white-space:normal}
@@ -80,6 +82,20 @@ function bubble(role, text = '') {
   return { el, body };
 }
 
+// Splits off the out-of-character "Reality check:" line the model adds to
+// health and safety questions and shows it as a separate note.
+function showReality(body, reply) {
+  const i = reply.search(/\n\s*Reality check:/);
+  if (i < 0) return;
+  body.textContent = reply.slice(0, i).trim();
+  const note = document.createElement('div');
+  note.className = 'reality';
+  const label = document.createElement('b');
+  label.textContent = 'Reality check: ';
+  note.append(label, reply.slice(i).replace(/^\s*Reality check:\s*/, ''));
+  body.after(note);
+}
+
 function showSources(el, sources) {
   const d = document.createElement('details');
   const s = document.createElement('summary');
@@ -97,7 +113,7 @@ function reset() {
   history = [];
   $('chips').hidden = false;
   chat.replaceChildren();
-  bubble('assistant', "Welcome to TrumpGPT. Frankly, the best chatbot ever built. People can't believe how good it is. Other chatbots? Weak. Very low IQ. Go ahead, ask me something. Try not to make it a stupid question.");
+  bubble('assistant', "Okay, go ahead. Quickly, I'm running the country, nobody's ever done it better, a lot of people say the best ever. What do you want?");
   input.focus();
 }
 
@@ -136,6 +152,7 @@ async function submit(text) {
     }
     if (!reply) throw Error('Empty reply');
     history.push({ role: 'assistant', content: reply });
+    showReality(body, reply);
     if (sources) showSources(el, sources);
   } catch (err) {
     body.textContent = (reply ? reply + '\n\n' : '') + '⚠ ' + err.message;
