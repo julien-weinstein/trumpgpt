@@ -15,7 +15,6 @@ const { load, POSTS } = require('./lib/corpus');
 const corpus = load();
 const { instructions } = require('./lib/persona');
 const { startLiveUpdates } = require('./lib/live');
-const voice = require('./lib/voice');
 
 const PORT = Number(process.env.PORT || 3000);
 const API_BASE = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
@@ -24,7 +23,7 @@ const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1';
 // extra randomness for variety unless TEMPERATURE overrides it.
 const TEMPERATURE = process.env.TEMPERATURE ? Number(process.env.TEMPERATURE)
   : /^(gpt-4|ft:gpt-4)/.test(MODEL) ? 1.1 : undefined;
-const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_HOUR || 150);
+const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_HOUR || 100);
 const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
 
 // Combative posts make better style samples than event announcements.
@@ -164,12 +163,6 @@ const server = http.createServer(async (req, res) => {
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
       if (rateLimited(ip)) return json(429, { error: 'Too many messages. Slow down, low energy.' });
       return await chat(req, res);
-    }
-    if (req.method === 'POST' && (req.url === '/api/tts' || req.url === '/api/transcribe')) {
-      if (!process.env.OPENAI_API_KEY) return json(503, { error: 'OPENAI_API_KEY is not set on the server.' });
-      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-      if (rateLimited(ip)) return json(429, { error: 'Too many requests. Slow down, low energy.' });
-      return await (req.url === '/api/tts' ? voice.tts(req, res, readBody) : voice.transcribe(req, res));
     }
     json(404, { error: 'Not found' });
   } catch (err) {

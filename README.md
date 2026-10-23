@@ -1,6 +1,6 @@
 # TrumpGPT
 
-A satirical chatbot that answers anything in Donald Trump's voice: the bragging, the grievances, the nicknames, the run-on tangents. It's clearly labelled as an unofficial parody.
+A satirical chatbot that answers anything in Donald Trump's voice: the bragging, the grievances, the nicknames, the run-on tangents. It's labelled on the page as AI satire.
 
 ## How it works
 
@@ -12,7 +12,6 @@ A satirical chatbot that answers anything in Donald Trump's voice: the bragging,
 - **Live updates** (`lib/live.js`): every 6 hours the server pulls the newest Truth Social posts, so what he talks about stays current with no redeploy.
 - **Retrieval** (`lib/corpus.js`): for every message, a BM25 search pulls his most relevant real quotes and posts on that topic, ranking recent material higher. It also adds random samples of his punchiest posts and his 15 latest posts, so he knows what's going on this week.
 - **Persona** (`lib/persona.js`): the system prompt that sets the attitude of the second-term, post-indictment, post-Butler version of him: paranoid, aggrieved, vindictive and narcissistic. It includes a 2021–2025 timeline, picks a random reply shape (short and dismissive, rally ramble, Fox phone-in and so on) for variety, and bans AI tells like em dashes. It still requires a real answer inside the bluster. The guardrails are no slurs, no attacks on protected groups, no made-up crimes about real people, and no real threats.
-- **Voice** (`lib/voice.js`): the mic button records you and transcribes with `gpt-4o-mini-transcribe`. Replies are read aloud by `gpt-4o-mini-tts` using a stock OpenAI voice, steered by delivery instructions (an older, brash New York accent and rally cadence). It's not a clone of his real voice. The speaker icon turns auto-play on or off, and each reply has a Listen button.
 - **Server** (`server.js`): plain Node with no dependencies. It streams replies from the OpenAI Responses API. The UI shows the real quotes each reply was styled on.
 
 ## Deploy on Render
@@ -23,8 +22,7 @@ A satirical chatbot that answers anything in Donald Trump's voice: the bragging,
   - `OPENAI_API_KEY` (required)
   - `OPENAI_MODEL` (default `gpt-4.1`; set it to your `ft:...` id after fine-tuning)
   - `TEMPERATURE` (optional; the default is 1.1 for gpt-4.x models and unset for others)
-  - `RATE_LIMIT_PER_HOUR` (chat, voice and mic requests per IP, default 150)
-  - `TTS_VOICE` (default `onyx`; others worth trying are `ash`, `ballad` and `verse`)
+  - `RATE_LIMIT_PER_HOUR` (messages per IP, default 100)
 
 ## Optional: fine-tune a model on his words
 
