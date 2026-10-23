@@ -9,5 +9,5 @@
     "build-corpus": "node scripts/build-corpus.js",
     "finetune": "node scripts/make-finetune.js"
   },
-  "engines": { "node": ">=20" }
+  "engines": { "node": ">=24.22.1 <25" }
 }

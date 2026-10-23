@@ -18,6 +18,7 @@ A satirical chatbot that answers anything in Donald Trump's voice: the bragging,
 
 - Build command: none, or `true`
 - Start command: `node server.js`
+- Node.js: `.node-version` pins the latest 24.x LTS release (24.22.1 or later includes the October 2026 security fixes). A `NODE_VERSION` variable on Render would override it, so leave that unset.
 - Environment variables:
   - `OPENAI_API_KEY` (required)
   - `OPENAI_MODEL` (default `gpt-4.1`; set it to your `ft:...` id after fine-tuning)
