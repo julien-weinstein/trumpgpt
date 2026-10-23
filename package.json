@@ -1,0 +1,13 @@
+{
+  "name": "trumpgpt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Satirical chatbot in the voice of Donald Trump, grounded in his real speeches, interviews and posts",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build-corpus": "node scripts/build-corpus.js",
+    "finetune": "node scripts/make-finetune.js"
+  },
+  "engines": { "node": ">=20" }
+}
