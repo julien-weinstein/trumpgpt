@@ -49,6 +49,17 @@ textarea{flex:1;resize:none;border:0;outline:0;background:transparent;color:var(
 textarea::placeholder{color:#6b7686}
 .send{flex:none;width:38px;height:38px;border-radius:50%;background:var(--text);color:var(--bg);display:grid;place-items:center}
 .send:disabled{opacity:.3;cursor:default}
+.mic{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.mic[hidden]{display:none}
+.mic.rec{background:var(--red);color:#fff;animation:pulse 1.2s infinite}
+.mic.wait{opacity:.5}
+.icon.on{color:var(--gold)}
+#voice .mute{display:inline}#voice .wave{display:none}
+#voice.on .mute{display:none}#voice.on .wave{display:inline}
+.actions{display:flex;align-items:center;gap:14px;margin-top:8px;font-size:13px;color:var(--muted)}
+.actions details{margin:0}
+.listen{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:13px;padding:0}
+.listen.playing{color:var(--gold)}
 .fine{max-width:760px;margin:6px auto 0;text-align:center;font-size:11px;color:#5f6b7c}
 @media(max-width:600px){.avatar{display:none}}
 @media(max-width:420px){.chips{grid-template-columns:1fr}.chips button:nth-child(n+4){display:none}}
@@ -57,9 +68,14 @@ textarea::placeholder{color:#6b7686}
 <body>
 <header class="top">
   <div class="brand">Trump<span>GPT</span></div>
+  <div style="display:flex;gap:2px">
+  <button class="icon" id="voice" type="button" aria-label="Read replies aloud" title="Read replies aloud">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave" d="M19 5a10 10 0 0 1 0 14"/><path class="mute" d="m22 9-6 6M16 9l6 6"/></svg>
+  </button>
   <button class="icon" id="reset" type="button" aria-label="New chat" title="New chat">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
   </button>
+  </div>
 </header>
 
 <main id="chat"></main>
@@ -67,6 +83,9 @@ textarea::placeholder{color:#6b7686}
 <div class="dock">
   <form id="form">
     <textarea id="input" rows="1" placeholder="Ask anything" aria-label="Message"></textarea>
+    <button class="mic" id="mic" type="button" aria-label="Talk">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/></svg>
+    </button>
     <button class="send" id="send" aria-label="Send" disabled>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
     </button>
@@ -122,17 +141,124 @@ function addBot() {
   return { wrap: t.lastChild, body: t.querySelector('.reply') };
 }
 
-function showSources(wrap, sources) {
-  const d = document.createElement('details');
-  const s = document.createElement('summary');
-  s.textContent = 'Sources ›';
-  d.append(s);
-  for (const x of sources) {
-    const p = document.createElement('p');
-    p.textContent = `${x.d} · ${x.g === 'truth' ? 'Truth Social' : x.g}: “${x.t}${x.t.length >= 280 ? '…' : ''}”`;
-    d.append(p);
+function addActions(wrap, reply, sources) {
+  const row = document.createElement('div');
+  row.className = 'actions';
+  const listen = document.createElement('button');
+  listen.type = 'button';
+  listen.className = 'listen';
+  listen.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg><span>Listen</span>';
+  listen.onclick = () => speak(reply, listen);
+  row.append(listen);
+  if (sources) {
+    const d = document.createElement('details');
+    const s = document.createElement('summary');
+    s.textContent = 'Sources ›';
+    d.append(s);
+    for (const x of sources) {
+      const p = document.createElement('p');
+      p.textContent = `${x.d} · ${x.g === 'truth' ? 'Truth Social' : x.g}: “${x.t}${x.t.length >= 280 ? '…' : ''}”`;
+      d.append(p);
+    }
+    row.append(d);
   }
-  wrap.append(d);
+  wrap.append(row);
+  return listen;
+}
+
+// --- Voice -----------------------------------------------------------------
+// One shared <audio> element, unlocked during a tap, so iPhones will let it
+// play replies that arrive later without another tap.
+const player = new Audio();
+player.playsInline = true;
+// 0.1 s of silence as a WAV data URL.
+const SILENT = (() => {
+  const n = 800, buf = new DataView(new ArrayBuffer(44 + n));
+  const str = (o, t) => [...t].forEach((c, i) => buf.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF'); buf.setUint32(4, 36 + n, true); str(8, 'WAVEfmt ');
+  buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 1, true);
+  buf.setUint32(24, 8000, true); buf.setUint32(28, 8000, true); buf.setUint16(32, 1, true); buf.setUint16(34, 8, true);
+  str(36, 'data'); buf.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) buf.setUint8(44 + i, 128);
+  return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...new Uint8Array(buf.buffer)));
+})();
+let unlocked = false;
+function unlockAudio() {
+  if (unlocked) return;
+  unlocked = true;
+  player.src = SILENT;
+  player.play().catch(() => { unlocked = false; });
+}
+document.addEventListener('pointerdown', unlockAudio, { capture: true });
+
+let voiceOn = false, playingBtn = null, speakToken = 0;
+function setVoice(on) {
+  voiceOn = on;
+  $('voice').classList.toggle('on', on);
+  try { localStorage.setItem('voice', on ? '1' : ''); } catch {}
+  if (!on) stopSpeaking();
+}
+function stopSpeaking() {
+  speakToken++;
+  player.pause();
+  if (playingBtn) { playingBtn.classList.remove('playing'); playingBtn.querySelector('span').textContent = 'Listen'; }
+  playingBtn = null;
+}
+async function speak(text, btn) {
+  if (btn && btn === playingBtn) return stopSpeaking();
+  stopSpeaking();
+  const token = speakToken;
+  playingBtn = btn;
+  if (btn) { btn.classList.add('playing'); btn.querySelector('span').textContent = 'Loading…'; }
+  try {
+    const res = await fetch('/api/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw Error((await res.json().catch(() => ({}))).error || 'Voice failed');
+    const url = URL.createObjectURL(await res.blob());
+    if (token !== speakToken) return URL.revokeObjectURL(url);
+    player.src = url;
+    player.onended = () => { URL.revokeObjectURL(url); if (token === speakToken) stopSpeaking(); };
+    if (btn) btn.querySelector('span').textContent = 'Stop';
+    await player.play();
+  } catch (err) {
+    if (token === speakToken) stopSpeaking();
+    console.warn(err);
+  }
+}
+
+// Mic: tap to record, tap again to send. Talking turns on spoken replies.
+let recorder = null;
+async function toggleMic() {
+  const mic = $('mic');
+  if (recorder) return recorder.stop();
+  if (busy) return;
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return alert('Microphone access is blocked. Allow it in your browser settings.'); }
+  stopSpeaking();
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const type = recorder.mimeType || 'audio/webm';
+    recorder = null;
+    mic.classList.remove('rec');
+    mic.classList.add('wait');
+    try {
+      const res = await fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': type }, body: new Blob(chunks, { type }) });
+      const data = await res.json();
+      if (!res.ok) throw Error(data.error);
+      if (data.text.trim()) { setVoice(true); submit(data.text); }
+    } catch (err) {
+      input.placeholder = err.message || "Couldn't hear that";
+    } finally {
+      mic.classList.remove('wait');
+    }
+  };
+  recorder.start();
+  mic.classList.add('rec');
 }
 
 function reset() {
@@ -189,7 +315,8 @@ async function submit(text) {
     }
     if (!reply) throw Error('Empty reply');
     history.push({ role: 'assistant', content: reply });
-    if (sources) showSources(wrap, sources);
+    const listen = addActions(wrap, reply, sources);
+    if (voiceOn) speak(reply, listen);
   } catch (err) {
     const e = document.createElement('div');
     e.className = 'err';
@@ -213,7 +340,11 @@ input.addEventListener('keydown', e => {
   }
 });
 input.addEventListener('input', resize);
-$('reset').addEventListener('click', reset);
+$('reset').addEventListener('click', () => { stopSpeaking(); reset(); });
+$('voice').addEventListener('click', () => setVoice(!voiceOn));
+$('mic').addEventListener('click', toggleMic);
+if (!window.MediaRecorder || !navigator.mediaDevices) $('mic').hidden = true;
+try { setVoice(localStorage.getItem('voice') === '1'); } catch {}
 
 fetch('/api/status').then(r => r.json()).then(s => {
   stats = s.corpus;
