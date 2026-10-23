@@ -4,11 +4,14 @@ A satirical chatbot that answers anything in Donald Trump's voice: the bragging,
 
 ## How it works
 
-- **Corpus** (`data/corpus.json.gz`, built by `scripts/build-corpus.js`) holds about 46,700 passages of his own words:
-  - About 17,300 spoken passages from 2015–16 rallies, interviews, debates, town halls and press conferences ([Trump Campaign Corpus](https://github.com/unendin/Trump_Campaign_Corpus)). Only his turns are kept, and about 8,000 of them are paired with the question he was answering.
-  - About 29,400 original @realDonaldTrump posts from 2009–2021 ([CompleteTrumpTweetsArchive](https://github.com/MarkHershey/CompleteTrumpTweetsArchive)), with retweets removed.
-- **Retrieval** (`lib/corpus.js`): for every message, a BM25 search pulls his most relevant real quotes and posts on that topic, plus random samples of his punchiest posts. These go into the prompt as style references.
-- **Persona** (`lib/persona.js`): the system prompt that sets the attitude, which is narcissistic, derisive, aggrieved and bullying. It still requires a real answer inside the bluster. The guardrails are no slurs, no attacks on protected groups, no made-up crimes about real people, and no real threats.
+- **Corpus** (`data/corpus.json.gz`, built by `scripts/build-corpus.js` with parsers in `lib/sources.js`) holds about 50,000 passages of his own words:
+  - About 17,300 passages from 2015–16 rallies, interviews, debates and town halls ([Trump Campaign Corpus](https://github.com/unendin/Trump_Campaign_Corpus)). About 8,000 of them are paired with the question he was answering.
+  - About 2,100 passages from 35 full 2019–20 rally speeches ([Trump_speech_NLP](https://github.com/davidtstill/Trump_speech_NLP)).
+  - About 18,600 @realDonaldTrump tweets from 2009–2021 ([CompleteTrumpTweetsArchive](https://github.com/MarkHershey/CompleteTrumpTweetsArchive)).
+  - About 12,600 Truth Social posts from February 2022 to the present ([truthsocial-archiver](https://github.com/mickpletcher/truthsocial-archiver)). Reposts, bare links and endorsement form letters are removed.
+- **Live updates** (`lib/live.js`): every 6 hours the server pulls the newest Truth Social posts, so what he talks about stays current with no redeploy.
+- **Retrieval** (`lib/corpus.js`): for every message, a BM25 search pulls his most relevant real quotes and posts on that topic, ranking recent material higher. It also adds random samples of his punchiest posts and his 15 latest posts, so he knows what's going on this week.
+- **Persona** (`lib/persona.js`): the system prompt that sets the attitude of the second-term, post-indictment, post-Butler version of him: paranoid, aggrieved, vindictive and narcissistic. It includes a 2021–2025 timeline, picks a random reply shape (short and dismissive, rally ramble, Fox phone-in and so on) for variety, and bans AI tells like em dashes. It still requires a real answer inside the bluster. The guardrails are no slurs, no attacks on protected groups, no made-up crimes about real people, and no real threats.
 - **Server** (`server.js`): plain Node with no dependencies. It streams replies from the OpenAI Responses API. The UI shows the real quotes each reply was styled on.
 
 ## Deploy on Render
@@ -18,7 +21,7 @@ A satirical chatbot that answers anything in Donald Trump's voice: the bragging,
 - Environment variables:
   - `OPENAI_API_KEY` (required)
   - `OPENAI_MODEL` (default `gpt-4.1`; set it to your `ft:...` id after fine-tuning)
-  - `TEMPERATURE` (optional, e.g. `1.0`; leave it unset for reasoning models)
+  - `TEMPERATURE` (optional; the default is 1.1 for gpt-4.x models and unset for others)
   - `RATE_LIMIT_PER_HOUR` (messages per IP, default 60)
 
 ## Optional: fine-tune a model on his words
@@ -33,5 +36,5 @@ This builds 3,000 examples, each pairing a real question he was asked with his r
 
 ```
 node scripts/build-corpus.js            # downloads the sources from GitHub
-node scripts/build-corpus.js ./sources  # or reads local clones of the two repos
+node scripts/build-corpus.js ./sources  # or reads local clones of the four repos
 ```

@@ -1,34 +1,64 @@
+// Render's free tier has 512 MB. A capped heap makes V8 collect garbage
+// sooner instead of growing toward the limit, so re-launch with the cap if
+// the start command didn't set one.
+if (!process.execArgv.some(a => a.startsWith('--max-old-space-size'))) {
+  const child = require('node:child_process').spawn(process.execPath,
+    ['--max-old-space-size=300', __filename, ...process.argv.slice(2)], { stdio: 'inherit' });
+  for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => child.kill(sig));
+  child.on('exit', (code, sig) => process.exit(code ?? (sig ? 1 : 0)));
+  return;
+}
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const corpus = require('./lib/corpus').load();
-const { PERSONA, referenceBlock } = require('./lib/persona');
+const { load, POSTS } = require('./lib/corpus');
+const corpus = load();
+const { instructions } = require('./lib/persona');
+const { startLiveUpdates } = require('./lib/live');
 
 const PORT = Number(process.env.PORT || 3000);
 const API_BASE = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1';
-const TEMPERATURE = process.env.TEMPERATURE ? Number(process.env.TEMPERATURE) : undefined;
+// Reasoning models (o-series, gpt-5) reject temperature; others get a bit of
+// extra randomness for variety unless TEMPERATURE overrides it.
+const TEMPERATURE = process.env.TEMPERATURE ? Number(process.env.TEMPERATURE)
+  : /^(gpt-4|ft:gpt-4)/.test(MODEL) ? 1.1 : undefined;
 const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_HOUR || 60);
 const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
 
-const ANSWERS = corpus.spoken.filter(p => p.q);
 // Combative posts make better style samples than event announcements.
-const PUNCHY = corpus.tweets.filter(p => /!/.test(p.t) &&
-  /\b[A-Z]{4,}\b|\b(Sad|Weak|Fake|loser|dumb|failing|Crooked|Sleepy|rigged|disgrace|overrated|haters)\b/i.test(p.t));
-console.log(`Corpus loaded: ${corpus.stats.spoken} spoken passages, ${corpus.stats.tweets} posts`);
+const punchy = p => /!/.test(p.t) &&
+  /\b[A-Z]{4,}\b|\b(Sad|Weak|Fake|loser|dumb|failing|Crooked|Sleepy|rigged|disgrace|corrupt|lunatic|witch hunt|deranged)\b/i.test(p.t);
+let ANSWERS, PUNCHY_OLD, PUNCHY_NEW;
+function pools() {
+  ANSWERS = corpus.spoken.filter(p => p.q);
+  PUNCHY_OLD = corpus.posts.filter(p => p.g === 'tweet' && punchy(p));
+  PUNCHY_NEW = corpus.recentPosts.filter(punchy);
+}
+pools();
+const reportCorpus = () => console.log(`Corpus: ${corpus.stats.spoken} spoken passages, ${corpus.stats.posts} posts, latest ${corpus.stats.latest}`);
+reportCorpus();
+const add = corpus.add;
+corpus.add = more => { add(more); pools(); reportCorpus(); };
+startLiveUpdates(corpus);
 
 // Pick reference material for this turn: the passages most relevant to the
-// conversation, topped up with random posts so the voice doesn't collapse
-// onto one topic.
+// conversation, random samples weighted toward his recent voice so it
+// doesn't collapse onto one topic, and his latest posts for current events.
 function references(messages) {
   const users = messages.filter(m => m.role === 'user').map(m => m.content);
   const query = users.slice(-2).join(' ');
-  const relevantSpoken = corpus.search(query, { limit: 3, filter: p => p.g !== 'tweet' });
-  const relevantTweets = corpus.search(query, { limit: 6, filter: p => p.g === 'tweet' });
-  const spoken = [...relevantSpoken, ...corpus.sample(ANSWERS, 2)];
-  const tweets = [...relevantTweets, ...corpus.sample(PUNCHY, 6)];
-  return { spoken, tweets };
+  const relevantSpoken = corpus.search(query, { limit: 3, filter: p => !POSTS.has(p.g) });
+  const relevantPosts = corpus.search(query, { limit: 8, filter: p => POSTS.has(p.g) });
+  return {
+    spoken: [...relevantSpoken, ...corpus.sample(ANSWERS, 1)],
+    posts: [...relevantPosts, ...corpus.sample(PUNCHY_NEW, 6), ...corpus.sample(PUNCHY_OLD, 2)],
+    latest: corpus.latest(15),
+  };
 }
+
+// Belt and braces for the "no em dashes" rule in the persona.
+const scrubDashes = s => s.replace(/(\d)[—–](\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ');
 
 const hits = new Map(); // ip -> timestamps in the last hour
 function rateLimited(ip) {
@@ -67,14 +97,14 @@ async function chat(req, res) {
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
 
   const refs = references(messages);
-  send({ sources: [...refs.spoken.slice(0, 3), ...refs.tweets.slice(0, 4)].map(p => ({ g: p.g, d: p.d, t: p.t.slice(0, 280) })) });
+  send({ sources: [...refs.spoken.slice(0, 2), ...refs.posts.slice(0, 5)].map(p => ({ g: p.g, d: p.d, t: p.t.slice(0, 280) })) });
 
   const upstream = await fetch(`${API_BASE}/responses`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODEL,
-      instructions: PERSONA + referenceBlock(refs),
+      instructions: instructions(refs, new Date().toLocaleDateString('en-US', { dateStyle: 'long', timeZone: 'America/New_York' })),
       input: messages,
       max_output_tokens: 1200,
       stream: true,
@@ -104,7 +134,7 @@ async function chat(req, res) {
       if (!line.startsWith('data:')) continue;
       let event;
       try { event = JSON.parse(line.slice(5)); } catch { continue; }
-      if (event.type === 'response.output_text.delta') send({ d: event.delta });
+      if (event.type === 'response.output_text.delta') send({ d: scrubDashes(event.delta) });
       else if (event.type === 'error' || event.type === 'response.failed') {
         console.error('OpenAI stream error', JSON.stringify(event).slice(0, 500));
         send({ error: 'The AI stream failed. Please retry.' });

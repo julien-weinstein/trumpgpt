@@ -2,7 +2,10 @@
 // Builds data/corpus.json.gz from public archives of Trump's own words:
 //   - Trump Campaign Corpus (unendin): 2015–16 rallies, interviews, debates,
 //     town halls and press conferences, with speakers labelled per turn.
+//   - Trump_speech_NLP (davidtstill): 35 full rally speeches, 2019–20.
 //   - CompleteTrumpTweetsArchive (MarkHershey): @realDonaldTrump 2009–2021.
+//   - truthsocial-archiver (mickpletcher): Truth Social posts, 2022–present.
+//     The server also tops this up live (see lib/live.js).
 //
 // Usage: node scripts/build-corpus.js [localSourceDir]
 // With a local dir, files are read from <dir>/<repo-name>/<path> (shallow
@@ -10,105 +13,62 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const src = require('../lib/sources');
 
-const SOURCES = {
-  campaign: ['unendin/Trump_Campaign_Corpus', 'trump_campaign_corpus.json'],
-  tweetsBefore: ['MarkHershey/CompleteTrumpTweetsArchive', 'data/realDonaldTrump_bf_office.csv'],
-  tweetsInOffice: ['MarkHershey/CompleteTrumpTweetsArchive', 'data/realDonaldTrump_in_office.csv'],
+const REPOS = {
+  campaign: 'unendin/Trump_Campaign_Corpus',
+  rallies: 'davidtstill/Trump_speech_NLP',
+  tweets: 'MarkHershey/CompleteTrumpTweetsArchive',
+  truth: 'mickpletcher/truthsocial-archiver',
 };
-const SPOKEN = new Set(['speech', 'interview', 'town hall', 'press conference', 'debate']);
-const TRUMP = 'Donald Trump';
 
-async function load(key, localDir) {
-  const [repo, file] = SOURCES[key];
-  if (localDir) return fs.readFileSync(path.join(localDir, repo.split('/')[1], file), 'utf8');
-  const url = `https://raw.githubusercontent.com/${repo}/master/${file}`;
-  const res = await fetch(url);
-  if (!res.ok) throw Error(`${url}: HTTP ${res.status}`);
-  return res.text();
-}
-
-const clean = s => s
-  .replace(/\[[^\]]{0,80}\]|\((?:applause|laughter|cheers|booing|crosstalk|inaudible)[^)]*\)/gi, ' ')
-  .replace(/\s+/g, ' ')
-  .trim();
-
-// Each doc is a list of turns {person, p}; p is a string, or an array of
-// paragraphs and {note} stage directions.
-function paragraphs(turn) {
-  const p = Array.isArray(turn.p) ? turn.p : [turn.p];
-  return p.filter(x => typeof x === 'string').map(clean).filter(Boolean);
-}
-
-function spokenPassages(docs) {
-  const out = [];
-  for (const d of docs) {
-    if (!SPOKEN.has(d.genre)) continue;
-    const turns = Array.isArray(d.doc) ? d.doc : [d.doc];
-    const source = d.text_filename.replace(/\.txt$/, '');
-    const date = new Date(d.date_published).toISOString().slice(0, 10);
-    let lastQuestion = null;
-    for (const turn of turns) {
-      if (!turn || !turn.p) continue;
-      const paras = paragraphs(turn);
-      if (turn.person !== TRUMP) {
-        const q = paras.join(' ');
-        lastQuestion = q.length >= 15 && q.length <= 600 ? q : null;
-        continue;
-      }
-      // Chunk Trump's turn into ~500–1200 char passages on paragraph breaks.
-      let buf = '';
-      const flush = () => {
-        if (buf.length >= 160) {
-          out.push({ g: d.genre, d: date, s: source, q: lastQuestion || undefined, t: buf });
-          lastQuestion = null; // only the first chunk answers the question
-        }
-        buf = '';
-      };
-      for (const para of paras) {
-        if (buf && buf.length + para.length > 1200) flush();
-        buf += (buf ? '\n' : '') + para.slice(0, 1400);
-      }
-      flush();
-    }
-  }
-  return out;
-}
-
-// The archive's CSVs were mac-roman mis-decoded once; undo the common cases.
-const MOJIBAKE = { '‚Äô': '’', '‚Äò': '‘', '‚Ä¶': '…', '‚Äú': '“', '‚Äù': '”', '‚Äì': '–', '‚Äî': '—' };
-const fixText = s => s.replace(/‚Ä[ô¶úùìîò]/g, m => MOJIBAKE[m] || m).replace(/&amp;/g, '&');
-
-function tweetPassages(csv) {
-  const out = [];
-  for (const line of csv.split('\n').slice(1)) {
-    const m = line.match(/^@realDonaldTrump, (\d{4}-\d\d-\d\d) [\d:]+, (\S+), "(.*)"\s*$/);
-    if (!m) continue;
-    const t = fixText(m[3].replace(/""/g, '"'))
-      .replace(/https?:\/\/\S+/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (t.startsWith('RT ') || /^['"]\s?@/.test(t) || t.length < 50) continue;
-    out.push({ g: 'tweet', d: m[1], s: m[2], t });
-  }
-  return out;
+function reader(localDir) {
+  const read = async (repo, file, branch = 'master') => {
+    if (localDir) return fs.readFileSync(path.join(localDir, repo.split('/')[1], file), 'utf8');
+    const url = `https://raw.githubusercontent.com/${repo}/${branch}/${file}`;
+    const res = await fetch(url);
+    if (!res.ok) throw Error(`${url}: HTTP ${res.status}`);
+    return res.text();
+  };
+  const list = async (repo, dir) => {
+    if (localDir) return fs.readdirSync(path.join(localDir, repo.split('/')[1], dir));
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${dir}`);
+    if (!res.ok) throw Error(`listing ${repo}/${dir}: HTTP ${res.status}`);
+    return (await res.json()).map(f => f.name);
+  };
+  return { read, list };
 }
 
 async function main() {
-  const localDir = process.argv[2];
-  const docs = JSON.parse(await load('campaign', localDir));
-  const spoken = spokenPassages(docs);
+  const { read, list } = reader(process.argv[2]);
+
+  const campaign = src.campaignPassages(JSON.parse(await read(REPOS.campaign, 'trump_campaign_corpus.json')));
+
+  const rallies = [];
+  for (const name of (await list(REPOS.rallies, 'speeches')).filter(n => n.endsWith('.txt'))) {
+    rallies.push(...src.rallyPassages(name, await read(REPOS.rallies, `speeches/${name}`)));
+  }
+
+  // Pre-2015 tweets are mostly Apprentice promos and business quotes; keep
+  // only the combative ones to save memory.
   const seen = new Set();
   const tweets = [
-    ...tweetPassages(await load('tweetsBefore', localDir)),
-    ...tweetPassages(await load('tweetsInOffice', localDir)),
-  ].filter(x => !seen.has(x.t) && seen.add(x.t));
+    ...src.tweetPassages(await read(REPOS.tweets, 'data/realDonaldTrump_bf_office.csv')),
+    ...src.tweetPassages(await read(REPOS.tweets, 'data/realDonaldTrump_in_office.csv')),
+  ].filter(x => !seen.has(x.t) && seen.add(x.t))
+    .filter(x => x.d >= '2015' || /!/.test(x.t) && /\b(Obama|loser|dumb|fool|fake|weak|sad|incompetent)\b/i.test(x.t));
 
-  const passages = [...spoken, ...tweets];
+  const truths = src.truthPassages(await read(REPOS.truth, 'docs/data/posts.jsonl', 'main'))
+    .filter(x => !seen.has(x.t) && seen.add(x.t))
+    .sort((a, b) => a.d.localeCompare(b.d));
+
+  const passages = [...campaign, ...rallies, ...tweets, ...truths];
   const file = path.join(__dirname, '..', 'data', 'corpus.json.gz');
   fs.writeFileSync(file, zlib.gzipSync(JSON.stringify(passages), { level: 9 }));
-  console.log(`spoken passages: ${spoken.length} (${spoken.filter(x => x.q).length} with question)`);
-  console.log(`tweets: ${tweets.length}`);
+  console.log(`2015–16 transcripts: ${campaign.length} (${campaign.filter(x => x.q).length} with question)`);
+  console.log(`2019–20 rallies: ${rallies.length}`);
+  console.log(`tweets 2009–21: ${tweets.length}`);
+  console.log(`truth social: ${truths.length} (${truths[0].d} to ${truths.at(-1).d})`);
   console.log(`wrote ${file} (${(fs.statSync(file).size / 1e6).toFixed(1)} MB)`);
 }
 
